@@ -1,11 +1,11 @@
 import argparse
 import ee
 from datetime import datetime, timezone
-from task_base import EETask
+from task_base import HIITask
 
 
-class HIIRail(EETask):
-    ee_rootdir = "projects/HII/v1/sumatra_poc"
+class HIIRail(HIITask):
+    ee_rootdir = "projects/HII/v1"
     ee_driverdir = "driver/rail"
     ee_hiistatic_osm = "projects/HII/v1/source/osm_earth/"
     ee_hiistatic_infra = "projects/HII/v1/source/infra/"
@@ -33,63 +33,63 @@ class HIIRail(EETask):
 
     inputs = {
         "railway_abandoned": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/abandoned",
         },
         "railway_disused": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/disused",
         },
         "railway_funicular": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/funicular",
         },
         "railway_halt": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/halt",
         },
         "railway_light_rail": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/light_rail",
         },
         "railway_miniature": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/miniature",
         },
         "railway_monorail": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/monorail",
         },
         "railway_narrow_gauge": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/narrow_gauge",
         },
         "railway_platform": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/platform",
         },
         "railway_preserved": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/preserved",
         },
         "railway_rail": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/rail",
         },
         "railway_station": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/station",
         },
         "railway_subway": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/subway",
         },
         "railway_tram": {
-            "ee_type": EETask.IMAGECOLLECTION,
+            "ee_type": HIITask.IMAGECOLLECTION,
             "ee_path": f"{ee_hiistatic_osm}railway/tram",
         },
         "watermask": {
-            "ee_type": EETask.IMAGE,
+            "ee_type": HIITask.IMAGE,
             "ee_path": f"{ee_hiistatic_physical}watermask_jrc70_cciocean",
             "static": True,
         },
@@ -97,8 +97,8 @@ class HIIRail(EETask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self.set_aoi_from_ee("{}/sumatra_poc_aoi".format(self.ee_rootdir))
+        self.realm = kwargs.pop("realm", None)
+        self.set_aoi_from_ee('projects/HII/v1/source/realms/' + self.realm)  
 
     def calc(self):
         watermask = ee.Image(self.inputs["watermask"]["ee_path"])
@@ -192,7 +192,7 @@ class HIIRail(EETask):
 
         self.export_image_ee(
             rail_total,
-            "{}/{}".format(self.ee_driverdir, "hii_rail_driver"),
+            "{}/{}".format(self.ee_driverdir, "aois/" + self.realm),
         )
 
     def check_inputs(self):
@@ -201,6 +201,7 @@ class HIIRail(EETask):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("-r", "--realm", default='Afrotropic')
     parser.add_argument("-d", "--taskdate", default=datetime.now(timezone.utc).date())
     options = parser.parse_args()
     rail_task = HIIRail(**vars(options))
