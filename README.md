@@ -15,13 +15,14 @@ relative to each cell with at least one railway feature. These source rail cells
    bands for OSM features with railway tags. A cell in each band has a
    value of 1 in every 300m pixel if there are any OSM features with that tag in the cell, and NoData otherwise.
    This data is available since 2012-09-12, in steadily increasing quantity and quality.
-2. Static VMap railway data (https://gis-lab.info/qa/vmap0-eng.html) representing
-   1980-2010 are used to fill cells not marked by OSM. (Implicitly, we do not capture roads that actually disappear
-   over time.) In the future, once VMap's contribution is marginal enough, we will discontinue its use. Conversely,
+2. Static VMap0 railway data (https://gis-lab.info/qa/vmap0-eng.html) representing
+   1980-2010 are used to fill cells not marked by OSM. (Implicitly, we do not capture rails that actually disappear
+   over time.) In the future, once VMap0's contribution is marginal enough, we will discontinue its use. Conversely,
    prior to 2012-09-12, it is the only source.
 
 We are able to use the different OSM rail types to weight rail influence by type, a key advance over previous Human
-Footprint efforts. These weights are based on differntiating currently opperational railways and abandoned and unused railways.
+Footprint efforts. These weights are based on the OSM Wiki descriptions: https://wiki.openstreetmap.org/wiki/Key:railway
+
 
 ```
 railway_weights = {
@@ -47,9 +48,9 @@ Direct influence is calculated as the per-rail-type full weight (above) for 0.5 
 
 Indirect influence is calculated using an exponential decay function for 0.5 km to 15 km to either side of a railway:
 
-- The indirect maximum weight (at 0.5 km) is 1/2 of the direct weight for a given road type. (This is
+- The indirect maximum weight (at 0.5 km) is 1/2 of the direct weight for a given rail type. (This is
   directly comparable to the logic followed by  
-  [Venter et al. 2016](https://trello-attachments.s3.amazonaws.com/5da8bc0a329f3c4dd3089c3f/5eeb7ee36f4bd0693c98125f/b4f64f9bd6270db46ee2e4c4321fb246/Venter_et_al_2016_HFP_update_Data_Scientific_Data.pdf))
+  [Venter et al. 2016](https://www.nature.com/articles/sdata201667))
 - Utilized railways and abandoned railways have distinct decay functions, reflecting the relative degree of access from
   the railways itself by different modes of travel.
 - The decay function is defined as:

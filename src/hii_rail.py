@@ -5,7 +5,7 @@ from task_base import HIITask
 
 
 class HIIRail(HIITask):
-    SCALE = 300
+    scale = 300
     OSM_START = datetime(2012, 9, 12).date()
     NOMINAL_RAIL_WIDTH = 300  # width of roads in inputs
     DIRECT_INFLUENCE_WIDTH = 1000  # total width of direct influence (meters)
@@ -37,14 +37,14 @@ class HIIRail(HIITask):
     railway_weights = {
         "railway_abandoned": 4,
         "railway_disused": 4,
+        "railway_miniature": 4,
+        "railway_preserved": 4,
         "railway_funicular": 10,
         "railway_halt": 10,
         "railway_light_rail": 10,
-        "railway_miniature": 10,
         "railway_monorail": 10,
         "railway_narrow_gauge": 10,
         "railway_platform": 10,
-        "railway_preserved": 10,
         "railway_rail": 10,
         "railway_station": 10,
         "railway_subway": 10,
@@ -54,7 +54,6 @@ class HIIRail(HIITask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.scale = self.SCALE
         self.osm, _ = self.get_most_recent_image(
             ee.ImageCollection(self.inputs["osm"]["ee_path"])
         )
