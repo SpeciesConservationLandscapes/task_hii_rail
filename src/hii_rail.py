@@ -24,7 +24,7 @@ class HIIRail(HIITask):
         # TODO: refactor source dir structure
         "vmap": {
             "ee_type": HIITask.IMAGE,
-            "ee_path": "projects/HII/v1/source/infra/vMap-rails-v1-global",
+            "ee_path": "projects/HII/v1/source/infra/vMap-rails-v3-global",
             "static": True,
         },
         "water": {
@@ -35,21 +35,29 @@ class HIIRail(HIITask):
     }
 
     railway_weights = {
-        "railway_abandoned": 4,
-        "railway_disused": 4,
-        "railway_miniature": 4,
-        "railway_preserved": 4,
-        "railway_funicular": 10,
-        "railway_halt": 10,
-        "railway_light_rail": 10,
-        "railway_monorail": 10,
-        "railway_narrow_gauge": 10,
-        "railway_platform": 10,
-        "railway_rail": 10,
-        "railway_station": 10,
-        "railway_subway": 10,
-        "railway_tram": 10,
-        "vmap_rails": 10,
+        "osm": {
+            "railway_abandoned": 4,
+            "railway_disused": 4,
+            "railway_miniature": 4,
+            "railway_preserved": 4,
+            "railway_funicular": 10,
+            "railway_halt": 10,
+            "railway_light_rail": 10,
+            "railway_monorail": 10,
+            "railway_narrow_gauge": 10,
+            "railway_platform": 10,
+            "railway_rail": 10,
+            "railway_station": 10,
+            "railway_subway": 10,
+            "railway_tram": 10,
+        },
+        "vmap": {
+            "Not_Usable": 6,
+            "Doubtful": 7,
+            "Unexamined_Unsurveyed": 10,
+            "Under_Construction": 9,
+            "Operational": 10,
+        },
     }
 
     def __init__(self, *args, **kwargs):
@@ -72,14 +80,19 @@ class HIIRail(HIITask):
 
     def osm_vmap_combined_influence(self):
         osm_band_names = self.osm.bandNames()
-        rail_weights = ee.Dictionary(self.railway_weights)
+        vmap_band_names = self.vmap.bandNames()
+        osm_weights = ee.Dictionary(self.railway_weights["osm"])
+        vmap_weights = ee.Dictionary(self.railway_weights["vmap"])
+        rail_weights = osm_weights.combine(vmap_weights)
         band_names = ee.Dictionary(
             {
                 "all": rail_weights.keys(),
                 "osm": osm_band_names.filter(
                     ee.Filter.inList("item", rail_weights.keys())
                 ),
-                "vmap": ["vmap_rails"],
+                "vmap": vmap_band_names.filter(
+                    ee.Filter.inList("item", rail_weights.keys())
+                ),
             }
         )
         direct_weights = rail_weights.toImage()
@@ -92,8 +105,10 @@ class HIIRail(HIITask):
             .multiply(direct_weights.select(band_names.get("osm")))
         )
 
+        vmap_rails = self.vmap.select(band_names.get("vmap"))
+
         vmap_direct = (
-            self.vmap.distance(kernel=self.kernel["DIRECT"], skipMasked=False)
+            vmap_rails.distance(kernel=self.kernel["DIRECT"], skipMasked=False)
             .lte((self.DIRECT_INFLUENCE_WIDTH - self.NOMINAL_RAIL_WIDTH) / 2)
             .multiply(direct_weights.select(band_names.get("vmap")))
         )
@@ -127,29 +142,49 @@ class HIIRail(HIITask):
         )
 
     def vmap_influence(self):
-        vmap_direct_weight = self.rail_weights["vmap_rails"]
-        vmap_indirect_weight = vmap_direct_weight * (
-            self.DIRECT_INDIRECT_INFLUENCE_RATIO
+        vmap_band_names = self.vmap.bandNames()
+        vmap_weights = ee.Dictionary(self.railway_weights["vmap"])
+
+        band_names = ee.Dictionary(
+            {
+                "vmap": vmap_band_names.filter(
+                    ee.Filter.inList("item", vmap_weights.keys())
+                ),
+            }
         )
 
-        self.rail_direct_cost = (
-            self.vmap.distance(kernel=self.kernel["DIRECT"], skipMasked=False)
-            .lte((self.DIRECT_INFLUENCE_WIDTH - self.NOMINAL_ROAD_WIDTH) / 2)
-            .multiply(vmap_direct_weight)
-            .rename("rail_direct")
+        vmap_direct_weights = vmap_weights.toImage().select(band_names.get("vmap"))
+
+        vmap_indirect_weights = vmap_direct_weights.multiply(
+            self.DIRECT_INDIRECT_INFLUENCE_RATIO
+        ).select(band_names.get("vmap"))
+
+        rail_direct_cost = (
+            self.vmap.select(band_names.get("vmap"))
+            .distance(kernel=self.kernel["DIRECT"], skipMasked=False)
+            .lte((self.DIRECT_INFLUENCE_WIDTH - self.NOMINAL_RAIL_WIDTH) / 2)
+            .multiply(vmap_direct_weights)
+            # .reduce(ee.Reducer.max())
+            # .rename("rail_direct")
         )
-        vmap_indirect_cost_distance = self.rail_direct_cost.distance(
+
+        vmap_indirect_cost_distance = rail_direct_cost.distance(
             kernel=self.kernel["INDIRECT"], skipMasked=False
         )
+        self.rail_direct_cost = rail_direct_cost.reduce(ee.Reducer.max()).rename(
+            "rail_direct"
+        )
+
         self.rail_indirect_cost = (
             vmap_indirect_cost_distance.multiply(self.DECAY_CONSTANT)
             .exp()
-            .multiply(vmap_indirect_weight)
+            .multiply(vmap_indirect_weights)
             .updateMask(
                 vmap_indirect_cost_distance.lte(
                     self.INDIRECT_INFLUENCE_RADIUS - (self.DIRECT_INFLUENCE_WIDTH / 2)
                 )
             )
+            .reduce(ee.Reducer.max())
             .rename("rail_indirect")
         )
 
