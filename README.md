@@ -26,21 +26,29 @@ Footprint efforts. These weights are based on the OSM Wiki descriptions: https:/
 
 ```
 railway_weights = {
-      "railway_abandoned": 4,
-      "railway_disused": 4,
-      "railway_funicular": 10,
-      "railway_halt": 10,
-      "railway_light_rail": 10,
-      "railway_miniature": 10,
-      "railway_monorail": 10,
-      "railway_narrow_gauge": 10,
-      "railway_platform": 10,
-      "railway_preserved": 10,
-      "railway_rail": 10,
-      "railway_station": 10,
-      "railway_subway": 10,
-      "railway_tram": 10,
-      "vmap_rails": 10,
+      "osm": {
+          "railway_abandoned": 4,
+          "railway_disused": 4,
+          "railway_miniature": 4,
+          "railway_preserved": 4,
+          "railway_funicular": 10,
+          "railway_halt": 10,
+          "railway_light_rail": 10,
+          "railway_monorail": 10,
+          "railway_narrow_gauge": 10,
+          "railway_platform": 10,
+          "railway_rail": 10,
+          "railway_station": 10,
+          "railway_subway": 10,
+          "railway_tram": 10,
+      },
+      "vmap": {
+          "Not_Usable": 6,
+          "Doubtful": 7,
+          "Unexamined_Unsurveyed": 10,
+          "Under_Construction": 9,
+          "Operational": 10,
+      },
   }
 ```
 
