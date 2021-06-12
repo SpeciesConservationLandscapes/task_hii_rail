@@ -24,7 +24,7 @@ class HIIRail(HIITask):
         # TODO: refactor source dir structure
         "vmap": {
             "ee_type": HIITask.IMAGE,
-            "ee_path": "projects/HII/v1/source/infra/vMap-rails-v3-global",
+            "ee_path": "projects/HII/v1/source/infra/vMap-rails-v1-global",
             "static": True,
         },
         "water": {
