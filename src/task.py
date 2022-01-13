@@ -22,7 +22,7 @@ class HIIRail(HIITask):
             "ee_path": "projects/HII/v1/source/infra/vMap-rails-v1-global",
             "static": True,
         },
-        "water": {
+        "watermask": {
             "ee_type": HIITask.IMAGE,
             "ee_path": "projects/HII/v1/source/phys/watermask_jrc70_cciocean",
             "static": True,
@@ -61,7 +61,7 @@ class HIIRail(HIITask):
             ee.ImageCollection(self.inputs["osm"]["ee_path"])
         )
         self.vmap = ee.Image(self.inputs["vmap"]["ee_path"])
-        self.water = ee.Image(self.inputs["water"]["ee_path"])
+        self.watermask = ee.Image(self.inputs["watermask"]["ee_path"])
         self.rail_direct_cost = None
         self.kernel = {
             "DIRECT": ee.Kernel.euclidean(
@@ -146,7 +146,7 @@ class HIIRail(HIITask):
 
         rail_driver = (
             self.rail_direct_cost.unmask(0)
-            .updateMask(self.water)
+            .updateMask(self.watermask)
             .multiply(100)
             .int()
             .rename("hii_railway_driver")
