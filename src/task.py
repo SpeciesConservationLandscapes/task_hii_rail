@@ -5,15 +5,10 @@ from task_base import HIITask
 
 
 class HIIRail(HIITask):
-    scale = 300
     OSM_START = datetime(2012, 9, 12).date()
     NOMINAL_RAIL_WIDTH = 300  # width of roads in inputs
     DIRECT_INFLUENCE_WIDTH = 1000  # total width of direct influence (meters)
-    INDIRECT_INFLUENCE_RADIUS = (
-        15000  # distance from road indirect influence limit (meters)
-    )
     DECAY_CONSTANT = -0.0002
-    DIRECT_INDIRECT_INFLUENCE_RATIO = 0.5
 
     inputs = {
         "osm": {
@@ -27,7 +22,7 @@ class HIIRail(HIITask):
             "ee_path": "projects/HII/v1/source/infra/vMap-rails-v1-global",
             "static": True,
         },
-        "water": {
+        "watermask": {
             "ee_type": HIITask.IMAGE,
             "ee_path": "projects/HII/v1/source/phys/watermask_jrc70_cciocean",
             "static": True,
@@ -52,11 +47,11 @@ class HIIRail(HIITask):
             "railway_tram": 10,
         },
         "vmap": {
-            "Not_Usable": 6,
-            "Doubtful": 7,
-            "Unexamined_Unsurveyed": 10,
-            "Under_Construction": 9,
-            "Operational": 10,
+            "Not_Usable": 4,
+            "Doubtful": 2,
+            "Unexamined_Unsurveyed": 6,
+            "Under_Construction": 7,
+            "Operational": 8,
         },
     }
 
@@ -66,16 +61,12 @@ class HIIRail(HIITask):
             ee.ImageCollection(self.inputs["osm"]["ee_path"])
         )
         self.vmap = ee.Image(self.inputs["vmap"]["ee_path"])
-        self.water = ee.Image(self.inputs["water"]["ee_path"])
+        self.watermask = ee.Image(self.inputs["watermask"]["ee_path"])
         self.rail_direct_cost = None
-        self.rail_indirect_cost = None
         self.kernel = {
             "DIRECT": ee.Kernel.euclidean(
                 radius=self.DIRECT_INFLUENCE_WIDTH / 2, units="meters"
-            ),
-            "INDIRECT": ee.Kernel.euclidean(
-                radius=self.INDIRECT_INFLUENCE_RADIUS, units="meters"
-            ),
+            )
         }
 
     def osm_vmap_combined_influence(self):
@@ -96,7 +87,6 @@ class HIIRail(HIITask):
             }
         )
         direct_weights = rail_weights.toImage()
-        indirect_weights = direct_weights.multiply(self.DIRECT_INDIRECT_INFLUENCE_RATIO)
 
         osm_rails = self.osm.select(band_names.get("osm"))
         osm_direct = (
@@ -122,24 +112,6 @@ class HIIRail(HIITask):
         self.rail_direct_cost = rail_direct_bands.reduce(ee.Reducer.max()).rename(
             "rail_direct"
         )
-        rail_indirect_cost_distance = rail_direct_bands.distance(
-            kernel=self.kernel["INDIRECT"], skipMasked=False
-        )
-
-        rail_indirect_cost = rail_indirect_cost_distance.select(band_names.get("all"))
-
-        self.rail_indirect_cost = (
-            rail_indirect_cost.multiply(self.DECAY_CONSTANT)
-            .exp()
-            .multiply(indirect_weights.select(band_names.get("all")))
-            .updateMask(
-                rail_indirect_cost.lte(
-                    self.INDIRECT_INFLUENCE_RADIUS - (self.DIRECT_INFLUENCE_WIDTH / 2)
-                )
-            )
-            .reduce(ee.Reducer.max())
-            .rename("rail_indirect")
-        )
 
     def vmap_influence(self):
         vmap_band_names = self.vmap.bandNames()
@@ -149,43 +121,21 @@ class HIIRail(HIITask):
             {
                 "vmap": vmap_band_names.filter(
                     ee.Filter.inList("item", vmap_weights.keys())
-                ),
+                )
             }
         )
 
         vmap_direct_weights = vmap_weights.toImage().select(band_names.get("vmap"))
-
-        vmap_indirect_weights = vmap_direct_weights.multiply(
-            self.DIRECT_INDIRECT_INFLUENCE_RATIO
-        ).select(band_names.get("vmap"))
 
         rail_direct_cost = (
             self.vmap.select(band_names.get("vmap"))
             .distance(kernel=self.kernel["DIRECT"], skipMasked=False)
             .lte((self.DIRECT_INFLUENCE_WIDTH - self.NOMINAL_RAIL_WIDTH) / 2)
             .multiply(vmap_direct_weights)
-            # .reduce(ee.Reducer.max())
-            # .rename("rail_direct")
         )
 
-        vmap_indirect_cost_distance = rail_direct_cost.distance(
-            kernel=self.kernel["INDIRECT"], skipMasked=False
-        )
         self.rail_direct_cost = rail_direct_cost.reduce(ee.Reducer.max()).rename(
             "rail_direct"
-        )
-
-        self.rail_indirect_cost = (
-            vmap_indirect_cost_distance.multiply(self.DECAY_CONSTANT)
-            .exp()
-            .multiply(vmap_indirect_weights)
-            .updateMask(
-                vmap_indirect_cost_distance.lte(
-                    self.INDIRECT_INFLUENCE_RADIUS - (self.DIRECT_INFLUENCE_WIDTH / 2)
-                )
-            )
-            .reduce(ee.Reducer.max())
-            .rename("rail_indirect")
         )
 
     def calc(self):
@@ -195,19 +145,14 @@ class HIIRail(HIITask):
             self.vmap_influence()
 
         rail_driver = (
-            self.rail_direct_cost.addBands(self.rail_indirect_cost)
-            .reduce(ee.Reducer.max())
-            .unmask(0)
-            .updateMask(self.water)
+            self.rail_direct_cost.unmask(0)
+            .updateMask(self.watermask)
             .multiply(100)
             .int()
             .rename("hii_railway_driver")
         )
 
-        self.export_image_ee(
-            rail_driver,
-            f"driver/railways",
-        )
+        self.export_image_ee(rail_driver, "driver/railways")
 
     def check_inputs(self):
         if self.taskdate >= self.OSM_START:
