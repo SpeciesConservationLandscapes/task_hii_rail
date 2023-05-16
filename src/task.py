@@ -62,6 +62,8 @@ class HIIRail(HIITask):
                 radius=self.DIRECT_INFLUENCE_WIDTH / 2, units="meters"
             )
         }
+        self.export_path = None
+        self.noosm = kwargs.get("noosm", False)
 
     def osm_vmap_combined_influence(self):
         osm_band_names = self.osm.bandNames()
@@ -103,9 +105,7 @@ class HIIRail(HIITask):
 
         rail_direct_bands = osm_direct.addBands(vmap_fill)
 
-        self.rail_direct_cost = rail_direct_bands.reduce(ee.Reducer.max()).rename(
-            "rail_direct"
-        )
+        return rail_direct_bands.reduce(ee.Reducer.max()).rename("rail_direct")
 
     def vmap_influence(self):
         vmap_band_names = self.vmap.bandNames()
@@ -128,15 +128,13 @@ class HIIRail(HIITask):
             .multiply(vmap_direct_weights)
         )
 
-        self.rail_direct_cost = rail_direct_cost.reduce(ee.Reducer.max()).rename(
-            "rail_direct"
-        )
+        return rail_direct_cost.reduce(ee.Reducer.max()).rename("rail_direct")
 
     def calc(self):
-        if self.osm:
-            self.osm_vmap_combined_influence()
+        if self.osm and self.noosm is False:
+            self.rail_direct_cost = self.osm_vmap_combined_influence()
         else:
-            self.vmap_influence()
+            self.rail_direct_cost = self.vmap_influence()
 
         rail_driver = (
             self.rail_direct_cost.unmask(0)
@@ -146,7 +144,12 @@ class HIIRail(HIITask):
             .rename("hii_railway_driver")
         )
 
-        self.export_image_ee(rail_driver, "driver/railways")
+        if self.noosm is False:
+            self.export_path = f"driver/railways"
+        else:
+            self.export_path = f"driver/railways_no_osm"
+
+        self.export_image_ee(rail_driver, self.export_path)
 
     def check_inputs(self):
         if self.taskdate >= self.OSM_START:
@@ -160,6 +163,12 @@ if __name__ == "__main__":
         "--overwrite",
         action="store_true",
         help="overwrite existing outputs instead of incrementing",
+    )
+    parser.add_argument(
+        "-n",
+        "--noosm",
+        action="store_true",
+        help="do not include osm in driver calculation",
     )
     options = parser.parse_args()
     rail_task = HIIRail(**vars(options))
